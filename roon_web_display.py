@@ -223,16 +223,6 @@ def roon_poll_loop():
                             "source": "roon",
                         })
                     push_state()
-                else:
-                    with _state_lock:
-                        _state.update({
-                            "seek": seek,
-                            "length": length,
-                            "volume": vol_pct,
-                            "zone_id": zone_id,
-                            "output_id": output_id,
-                        })
-                    push_state()
             else:
                 _last_image_key = None
                 _last_track_id  = None
@@ -794,11 +784,11 @@ html, body {
 
 /* Clock screen */
 #clock-screen {
-  position:absolute; inset:0; z-index:5;
+  position:fixed; inset:0; z-index:100;
   display:flex; align-items:center; justify-content:center;
-  background:#000;
+  background:transparent;
   opacity:0; pointer-events:none;
-  transition:opacity 0.5s;
+  transition:opacity 0.8s ease;
 }
 #clock-screen.show { opacity:1; pointer-events:all; }
 
@@ -806,6 +796,8 @@ html, body {
   display:flex;
   align-items:center;
   gap:60px;
+  position:relative;
+  z-index:2;
 }
 
 #clock-svg { flex-shrink:0; }
@@ -827,11 +819,13 @@ html, body {
 
 /* Clock art bg */
 #clock-art-bg {
-  position:absolute; inset:0;
+  position:absolute; inset:0; z-index:1;
   background-size:cover; background-position:center;
   filter:blur(60px) brightness(0.3);
   transform:scale(1.1);
-  opacity:0; transition:opacity 1s;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.8s ease;
 }
 #clock-art-bg.show { opacity:1; }
 </style>
@@ -897,11 +891,16 @@ function connect() {
 }
 
 function handleState(s) {
+  const prevMode = state ? state.mode : 'clock';
   state = s;
   if (s.mode === 'clock') {
     showClock();
+    return;
   } else {
-    hideClock();
+    // Only hide clock once art is loaded
+    if (s.art_b64 && s.art_b64.length > 0) {
+      hideClock();
+    }
     updateArt(s.art_b64);
     if (s.source === 'shazam') {
       } else {
@@ -962,11 +961,13 @@ function updateProgress(seek, length) {
 
 // --- Clock ---
 function showClock() {
-  document.getElementById('clock-screen').classList.add('show');
   if (state && state.art_b64) {
-    document.getElementById('clock-art-bg').style.backgroundImage = `url(data:image/jpeg;base64,${state.art_b64})`;
-    document.getElementById('clock-art-bg').classList.add('show');
+    const bg = document.getElementById('clock-art-bg');
+    bg.style.backgroundImage = `url(data:image/jpeg;base64,${state.art_b64})`;
+    bg.style.opacity = '1';
+    bg.classList.add('show');
   }
+  document.getElementById('clock-screen').classList.add('show');
   drawClock();
   if (!clockTimer) clockTimer = setInterval(drawClock, 1000);
 }
